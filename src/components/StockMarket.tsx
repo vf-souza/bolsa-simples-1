@@ -25,6 +25,7 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
   const [roundNumber, setRoundNumber] = useState(1);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [showFinalReport, setShowFinalReport] = useState(false);
+  const [lastEventTime, setLastEventTime] = useState(0);
 
   const companyData = {
     '9A': ['ECOSOL', 'MAXXIMINÉRIOS', 'AGROSOJA', 'FUTUROBANK', 'SMARTAL'],
@@ -39,6 +40,23 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
     'Falha em servidores de IA paralisa operações'
   ];
 
+  const eventImpacts = {
+    '9A': {
+      'Rompimento de barragem afeta mercado': ['MAXXIMINÉRIOS'],
+      'Estiagem prolongada impacta setores': ['AGROSOJA'],
+      'Vendaval causa danos estruturais': ['ECOSOL'],
+      'Crise imobiliária abala confiança': ['FUTUROBANK'],
+      'Falha em servidores de IA paralisa operações': ['SMARTAL']
+    },
+    '9B': {
+      'Rompimento de barragem afeta mercado': ['MINEX'],
+      'Estiagem prolongada impacta setores': ['GALINDOS\'S COFFEE'],
+      'Vendaval causa danos estruturais': ['EOLION'],
+      'Crise imobiliária abala confiança': ['ALFABANK'],
+      'Falha em servidores de IA paralisa operações': ['SANTOS TECNOVA']
+    }
+  };
+
   useEffect(() => {
     const initialCompanies = companyData[classId].map(name => ({
       name,
@@ -47,12 +65,36 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
       trend: 'neutral' as const
     }));
     setCompanies(initialCompanies);
+    setLastEventTime(0);
   }, [classId]);
+
+  const applyEventImpact = (eventName: string) => {
+    const affectedCompanies = eventImpacts[classId][eventName];
+    if (!affectedCompanies) return;
+
+    setCompanies(prev => prev.map(company => {
+      if (affectedCompanies.includes(company.name) && company.investment > 0) {
+        const impactPercentage = 0.15 + Math.random() * 0.1; // 15-25% de redução
+        const newInvestment = Math.max(0, company.investment * (1 - impactPercentage));
+        const change = -impactPercentage * 100;
+        
+        return {
+          ...company,
+          investment: newInvestment,
+          lastChange: change,
+          trend: 'down' as const
+        };
+      }
+      return company;
+    }));
+  };
 
   useEffect(() => {
     if (roundTime <= 0) {
       setRoundTime(40);
       setRoundNumber(prev => prev + 1);
+      setLastEventTime(0); // Reset event timer for new round
+      
       if (roundNumber >= 8) {
         setShowFinalReport(true);
         toast({
@@ -63,11 +105,18 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
       }
     }
 
-    if (roundTime === 10 && !isEventActive) {
+    // Verificar se deve disparar um evento (a cada 30 segundos de mercado)
+    const elapsedTime = 40 - roundTime;
+    if (elapsedTime > 0 && elapsedTime >= lastEventTime + 30 && !isEventActive) {
       const randomEvent = negativeEvents[Math.floor(Math.random() * negativeEvents.length)];
       setCurrentEvent(randomEvent);
       setIsEventActive(true);
+      setLastEventTime(elapsedTime);
       
+      // Aplicar impacto imediatamente quando o evento aparece
+      applyEventImpact(randomEvent);
+      
+      // Remover aviso após 7 segundos, mas mercado continua pausado
       setTimeout(() => {
         setCurrentEvent(null);
         setIsEventActive(false);
@@ -81,7 +130,7 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [roundTime, isEventActive, roundNumber]);
+  }, [roundTime, isEventActive, roundNumber, lastEventTime, classId]);
 
   const handleInvestment = (companyIndex: number, amount: number) => {
     if (isEventActive) return;
