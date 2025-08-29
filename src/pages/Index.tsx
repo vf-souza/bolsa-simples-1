@@ -1,14 +1,23 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState } from "react";
+import ClassSelection from "@/components/ClassSelection";
+import StockMarket from "@/components/StockMarket";
 
 const Index = () => {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
-    </div>
-  );
+  const [selectedClass, setSelectedClass] = useState<'9A' | '9B' | null>(null);
+
+  const handleSelectClass = (classId: '9A' | '9B') => {
+    setSelectedClass(classId);
+  };
+
+  const handleBack = () => {
+    setSelectedClass(null);
+  };
+
+  if (selectedClass) {
+    return <StockMarket classId={selectedClass} onBack={handleBack} />;
+  }
+
+  return <ClassSelection onSelectClass={handleSelectClass} />;
 };
 
 export default Index;
