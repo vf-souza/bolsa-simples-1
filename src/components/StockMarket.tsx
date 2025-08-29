@@ -40,7 +40,16 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
     'Falha em servidores de IA paralisa operações'
   ];
 
-  const eventImpacts = {
+  const positiveEvents = [
+    'Descoberta de novos recursos naturais impulsiona setor',
+    'Inovação tecnológica revoluciona mercado',
+    'Parcerias estratégicas aceleram crescimento',
+    'Certificação ambiental valoriza empresas sustentáveis',
+    'Expansão internacional abre novos mercados',
+    'Investimento em pesquisa gera breakthrough científico'
+  ];
+
+  const negativeEventImpacts = {
     '9A': {
       'Rompimento de barragem afeta mercado': ['MAXXIMINÉRIOS'],
       'Estiagem prolongada impacta setores': ['AGROSOJA'],
@@ -57,6 +66,25 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
     }
   };
 
+  const positiveEventImpacts = {
+    '9A': {
+      'Descoberta de novos recursos naturais impulsiona setor': ['MAXXIMINÉRIOS'],
+      'Inovação tecnológica revoluciona mercado': ['SMARTAL'],
+      'Parcerias estratégicas aceleram crescimento': ['AGROSOJA'],
+      'Certificação ambiental valoriza empresas sustentáveis': ['ECOSOL'],
+      'Expansão internacional abre novos mercados': ['FUTUROBANK'],
+      'Investimento em pesquisa gera breakthrough científico': ['SMARTAL']
+    },
+    '9B': {
+      'Descoberta de novos recursos naturais impulsiona setor': ['MINEX'],
+      'Inovação tecnológica revoluciona mercado': ['SANTOS TECNOVA'],
+      'Parcerias estratégicas aceleram crescimento': ['GALINDOS\'S COFFEE'],
+      'Certificação ambiental valoriza empresas sustentáveis': ['EOLION'],
+      'Expansão internacional abre novos mercados': ['ALFABANK'],
+      'Investimento em pesquisa gera breakthrough científico': ['SANTOS TECNOVA']
+    }
+  };
+
   useEffect(() => {
     const initialCompanies = companyData[classId].map(name => ({
       name,
@@ -68,21 +96,25 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
     setLastEventTime(0);
   }, [classId]);
 
-  const applyEventImpact = (eventName: string) => {
-    const affectedCompanies = eventImpacts[classId][eventName];
+  const applyEventImpact = (eventName: string, isPositive: boolean) => {
+    const impactMap = isPositive ? positiveEventImpacts : negativeEventImpacts;
+    const affectedCompanies = impactMap[classId][eventName];
     if (!affectedCompanies) return;
 
     setCompanies(prev => prev.map(company => {
       if (affectedCompanies.includes(company.name) && company.investment > 0) {
-        const impactPercentage = 0.15 + Math.random() * 0.1; // 15-25% de redução
-        const newInvestment = Math.max(0, company.investment * (1 - impactPercentage));
-        const change = -impactPercentage * 100;
+        const impactPercentage = 0.15 + Math.random() * 0.1; // 15-25% de variação
+        const multiplier = isPositive ? (1 + impactPercentage) : (1 - impactPercentage);
+        const newInvestment = isPositive 
+          ? company.investment * multiplier
+          : Math.max(0, company.investment * multiplier);
+        const change = (multiplier - 1) * 100;
         
         return {
           ...company,
           investment: newInvestment,
           lastChange: change,
-          trend: 'down' as const
+          trend: isPositive ? 'up' as const : 'down' as const
         };
       }
       return company;
@@ -108,13 +140,17 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
     // Verificar se deve disparar um evento (a cada 30 segundos de mercado)
     const elapsedTime = 40 - roundTime;
     if (elapsedTime > 0 && elapsedTime >= lastEventTime + 30 && !isEventActive) {
-      const randomEvent = negativeEvents[Math.floor(Math.random() * negativeEvents.length)];
+      // Decidir aleatoriamente se será evento positivo ou negativo
+      const isPositive = Math.random() < 0.5;
+      const eventList = isPositive ? positiveEvents : negativeEvents;
+      const randomEvent = eventList[Math.floor(Math.random() * eventList.length)];
+      
       setCurrentEvent(randomEvent);
       setIsEventActive(true);
       setLastEventTime(elapsedTime);
       
       // Aplicar impacto imediatamente quando o evento aparece
-      applyEventImpact(randomEvent);
+      applyEventImpact(randomEvent, isPositive);
       
       // Remover aviso após 7 segundos, mas mercado continua pausado
       setTimeout(() => {
@@ -184,8 +220,12 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
 
         {/* Event Alert */}
         {currentEvent && (
-          <div className="event-alert flex items-center gap-3">
-            <AlertTriangle className="h-5 w-5 flex-shrink-0" />
+          <div className={`event-alert flex items-center gap-3 ${
+            positiveEvents.includes(currentEvent) ? 'bg-event-positive/10 border-event-positive/20' : 'bg-event-negative/10 border-event-negative/20'
+          } border rounded-lg p-4`}>
+            <AlertTriangle className={`h-5 w-5 flex-shrink-0 ${
+              positiveEvents.includes(currentEvent) ? 'text-event-positive' : 'text-event-negative'
+            }`} />
             <span className="font-medium">{currentEvent}</span>
           </div>
         )}

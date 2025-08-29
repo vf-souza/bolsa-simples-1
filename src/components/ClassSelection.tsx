@@ -28,9 +28,14 @@ const ClassSelection = ({ onSelectClass }: ClassSelectionProps) => {
         <div className="text-center space-y-4">
           <div className="flex items-center justify-center gap-3 mb-6">
             <TrendingUp className="h-8 w-8 text-primary" />
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              Bolsa de Valores do Futuro
-            </h1>
+            <div className="text-center">
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                Escola do Futuro
+              </h1>
+              <h2 className="text-2xl font-semibold text-muted-foreground mt-1">
+                Bolsa de Valores do Futuro
+              </h2>
+            </div>
           </div>
           <p className="text-muted-foreground text-lg">
             Escolha sua turma para começar a investir no mercado

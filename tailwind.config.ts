@@ -76,7 +76,9 @@ export default {
 				},
 				'company-card': 'hsl(var(--company-card))',
 				'company-border': 'hsl(var(--company-border))',
-				'investment-bg': 'hsl(var(--investment-bg))'
+				'investment-bg': 'hsl(var(--investment-bg))',
+				'event-positive': 'hsl(var(--event-positive))',
+				'event-negative': 'hsl(var(--event-negative))'
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
