@@ -37,7 +37,12 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
     'Estiagem prolongada impacta setores',
     'Vendaval causa danos estruturais',
     'Crise imobiliária abala confiança',
-    'Falha em servidores de IA paralisa operações'
+    'Falha em servidores de IA paralisa operações',
+    'Aumento súbito de impostos sobre empresas',
+    'Greve geral paralisa transportes e logística',
+    'Cyberataques comprometem dados financeiros',
+    'Regulamentações ambientais restringem operações',
+    'Crise energética eleva custos operacionais'
   ];
 
   const positiveEvents = [
@@ -46,7 +51,11 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
     'Parcerias estratégicas aceleram crescimento',
     'Certificação ambiental valoriza empresas sustentáveis',
     'Expansão internacional abre novos mercados',
-    'Investimento em pesquisa gera breakthrough científico'
+    'Investimento em pesquisa gera breakthrough científico',
+    'Redução de taxas governamentais estimula economia',
+    'Acordos comerciais internacionais facilitam exportações',
+    'Investimentos em infraestrutura digital aceleram negócios',
+    'Políticas de incentivo fiscal beneficiam empresas'
   ];
 
   const negativeEventImpacts = {
@@ -55,14 +64,24 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
       'Estiagem prolongada impacta setores': ['AGROSOJA'],
       'Vendaval causa danos estruturais': ['ECOSOL'],
       'Crise imobiliária abala confiança': ['FUTUROBANK'],
-      'Falha em servidores de IA paralisa operações': ['SMARTAL']
+      'Falha em servidores de IA paralisa operações': ['SMARTAL'],
+      'Aumento súbito de impostos sobre empresas': ['FUTUROBANK'],
+      'Greve geral paralisa transportes e logística': ['AGROSOJA'],
+      'Cyberataques comprometem dados financeiros': ['SMARTAL'],
+      'Regulamentações ambientais restringem operações': ['ECOSOL'],
+      'Crise energética eleva custos operacionais': ['MAXXIMINÉRIOS']
     },
     '9B': {
       'Rompimento de barragem afeta mercado': ['MINEX'],
       'Estiagem prolongada impacta setores': ['GALINDOS\'S COFFEE'],
       'Vendaval causa danos estruturais': ['EOLION'],
       'Crise imobiliária abala confiança': ['ALFABANK'],
-      'Falha em servidores de IA paralisa operações': ['SANTOS TECNOVA']
+      'Falha em servidores de IA paralisa operações': ['SANTOS TECNOVA'],
+      'Aumento súbito de impostos sobre empresas': ['ALFABANK'],
+      'Greve geral paralisa transportes e logística': ['GALINDOS\'S COFFEE'],
+      'Cyberataques comprometem dados financeiros': ['SANTOS TECNOVA'],
+      'Regulamentações ambientais restringem operações': ['EOLION'],
+      'Crise energética eleva custos operacionais': ['MINEX']
     }
   };
 
@@ -73,7 +92,11 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
       'Parcerias estratégicas aceleram crescimento': ['AGROSOJA'],
       'Certificação ambiental valoriza empresas sustentáveis': ['ECOSOL'],
       'Expansão internacional abre novos mercados': ['FUTUROBANK'],
-      'Investimento em pesquisa gera breakthrough científico': ['SMARTAL']
+      'Investimento em pesquisa gera breakthrough científico': ['SMARTAL'],
+      'Redução de taxas governamentais estimula economia': ['FUTUROBANK'],
+      'Acordos comerciais internacionais facilitam exportações': ['AGROSOJA'],
+      'Investimentos em infraestrutura digital aceleram negócios': ['SMARTAL'],
+      'Políticas de incentivo fiscal beneficiam empresas': ['ECOSOL']
     },
     '9B': {
       'Descoberta de novos recursos naturais impulsiona setor': ['MINEX'],
@@ -81,7 +104,11 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
       'Parcerias estratégicas aceleram crescimento': ['GALINDOS\'S COFFEE'],
       'Certificação ambiental valoriza empresas sustentáveis': ['EOLION'],
       'Expansão internacional abre novos mercados': ['ALFABANK'],
-      'Investimento em pesquisa gera breakthrough científico': ['SANTOS TECNOVA']
+      'Investimento em pesquisa gera breakthrough científico': ['SANTOS TECNOVA'],
+      'Redução de taxas governamentais estimula economia': ['ALFABANK'],
+      'Acordos comerciais internacionais facilitam exportações': ['GALINDOS\'S COFFEE'],
+      'Investimentos em infraestrutura digital aceleram negócios': ['SANTOS TECNOVA'],
+      'Políticas de incentivo fiscal beneficiam empresas': ['EOLION']
     }
   };
 
@@ -103,7 +130,7 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
 
     setCompanies(prev => prev.map(company => {
       if (affectedCompanies.includes(company.name) && company.investment > 0) {
-        const impactPercentage = 0.15 + Math.random() * 0.1; // 15-25% de variação
+        const impactPercentage = 0.001 + Math.random() * 0.028; // 0.1-2.9% de variação
         const multiplier = isPositive ? (1 + impactPercentage) : (1 - impactPercentage);
         const newInvestment = isPositive 
           ? company.investment * multiplier
@@ -140,8 +167,8 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
     // Verificar se deve disparar um evento (a cada 30 segundos de mercado)
     const elapsedTime = 40 - roundTime;
     if (elapsedTime > 0 && elapsedTime >= lastEventTime + 30 && !isEventActive) {
-      // Decidir aleatoriamente se será evento positivo ou negativo
-      const isPositive = Math.random() < 0.5;
+      // Decidir aleatoriamente se será evento positivo ou negativo (60% negativo, 40% positivo)
+      const isPositive = Math.random() < 0.4;
       const eventList = isPositive ? positiveEvents : negativeEvents;
       const randomEvent = eventList[Math.floor(Math.random() * eventList.length)];
       
