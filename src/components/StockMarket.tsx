@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { TrendingUp, TrendingDown, AlertTriangle, Timer, ArrowLeft } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import FinalReport from "@/components/FinalReport";
@@ -19,13 +18,13 @@ interface StockMarketProps {
 }
 
 const StockMarket = ({ classId, onBack }: StockMarketProps) => {
-  const [roundTime, setRoundTime] = useState(40);
+  const [roundTime, setRoundTime] = useState(0);
   const [currentEvent, setCurrentEvent] = useState<string | null>(null);
   const [isEventActive, setIsEventActive] = useState(false);
-  const [roundNumber, setRoundNumber] = useState(1);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [showFinalReport, setShowFinalReport] = useState(false);
   const [lastEventTime, setLastEventTime] = useState(0);
+  const [isMarketActive, setIsMarketActive] = useState(true);
 
   const companyData = {
     '9A': ['ECOSOL', 'MAXXIMINÉRIOS', 'AGROSOJA', 'FUTUROBANK', 'SMARTAL'],
@@ -148,25 +147,36 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
     }));
   };
 
-  useEffect(() => {
-    if (roundTime <= 0) {
-      setRoundTime(40);
-      setRoundNumber(prev => prev + 1);
-      setLastEventTime(0); // Reset event timer for new round
-      
-      if (roundNumber >= 8) {
-        setShowFinalReport(true);
-        toast({
-          title: "Simulação Finalizada!",
-          description: "Confira o relatório final com o desempenho das empresas."
-        });
-        return;
-      }
-    }
+  const handleEndMarket = () => {
+    setIsMarketActive(false);
+    setShowFinalReport(true);
+    toast({
+      title: "Mercado Encerrado!",
+      description: "Confira o relatório final com o desempenho das empresas."
+    });
+  };
 
-    // Verificar se deve disparar um evento (a cada 30 segundos de mercado)
-    const elapsedTime = 40 - roundTime;
-    if (elapsedTime > 0 && elapsedTime >= lastEventTime + 30 && !isEventActive) {
+  const handleNewSimulation = () => {
+    setIsMarketActive(true);
+    setRoundTime(0);
+    setLastEventTime(0);
+    setCurrentEvent(null);
+    setIsEventActive(false);
+    setShowFinalReport(false);
+    const initialCompanies = companyData[classId].map(name => ({
+      name,
+      investment: 0,
+      lastChange: 0,
+      trend: 'neutral' as const
+    }));
+    setCompanies(initialCompanies);
+  };
+
+  useEffect(() => {
+    if (!isMarketActive) return;
+
+    // Verificar se deve disparar um evento (a cada 15 segundos de mercado)
+    if (roundTime > 0 && roundTime >= lastEventTime + 15 && !isEventActive) {
       // Decidir aleatoriamente se será evento positivo ou negativo (60% negativo, 40% positivo)
       const isPositive = Math.random() < 0.4;
       const eventList = isPositive ? positiveEvents : negativeEvents;
@@ -174,7 +184,7 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
       
       setCurrentEvent(randomEvent);
       setIsEventActive(true);
-      setLastEventTime(elapsedTime);
+      setLastEventTime(roundTime);
       
       // Aplicar impacto imediatamente quando o evento aparece
       applyEventImpact(randomEvent, isPositive);
@@ -187,13 +197,13 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
     }
 
     const timer = setTimeout(() => {
-      if (!isEventActive) {
-        setRoundTime(prev => prev - 1);
+      if (!isEventActive && isMarketActive) {
+        setRoundTime(prev => prev + 1);
       }
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [roundTime, isEventActive, roundNumber, lastEventTime, classId]);
+  }, [roundTime, isEventActive, isMarketActive, lastEventTime, classId]);
 
   const handleInvestment = (companyIndex: number, amount: number) => {
     if (isEventActive) return;
@@ -219,8 +229,6 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
     });
   };
 
-  const progress = ((40 - roundTime) / 40) * 100;
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary p-6">
       <div className="max-w-6xl mx-auto space-y-6">
@@ -233,17 +241,18 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
           
           <div className="text-center">
             <h1 className="text-2xl font-bold">Turma {classId}</h1>
-            <p className="text-muted-foreground">Rodada {roundNumber} de 8</p>
+            <p className="text-muted-foreground">Mercado Ativo - {Math.floor(roundTime / 60)}:{(roundTime % 60).toString().padStart(2, '0')}</p>
           </div>
           
-          <div className="market-timer flex items-center gap-2">
-            <Timer className="h-5 w-5" />
-            {roundTime}s
-          </div>
+          <Button 
+            variant="destructive" 
+            onClick={handleEndMarket}
+            disabled={!isMarketActive}
+            className="flex items-center gap-2"
+          >
+            Encerrar Mercado
+          </Button>
         </div>
-
-        {/* Progress Bar */}
-        <Progress value={progress} className="h-2" />
 
         {/* Event Alert */}
         {currentEvent && (
@@ -289,24 +298,31 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
                 <div className="flex gap-2">
                   <Button
                     className="investment-button bull flex-1"
-                    onClick={() => handleInvestment(index, 1000)}
-                    disabled={isEventActive}
+                    onClick={() => handleInvestment(index, 100)}
+                    disabled={isEventActive || !isMarketActive}
                   >
-                    +R$ 1k
+                    +R$ 100
                   </Button>
                   <Button
                     className="investment-button bull flex-1"
-                    onClick={() => handleInvestment(index, 5000)}
-                    disabled={isEventActive}
+                    onClick={() => handleInvestment(index, 500)}
+                    disabled={isEventActive || !isMarketActive}
                   >
-                    +R$ 5k
+                    +R$ 500
                   </Button>
                   <Button
                     className="investment-button bear flex-1"
-                    onClick={() => handleInvestment(index, -1000)}
-                    disabled={isEventActive || company.investment < 1000}
+                    onClick={() => handleInvestment(index, -100)}
+                    disabled={isEventActive || !isMarketActive || company.investment < 100}
                   >
-                    -R$ 1k
+                    -R$ 100
+                  </Button>
+                  <Button
+                    className="investment-button bear flex-1"
+                    onClick={() => handleInvestment(index, -500)}
+                    disabled={isEventActive || !isMarketActive || company.investment < 500}
+                  >
+                    -R$ 500
                   </Button>
                 </div>
               </div>
@@ -316,17 +332,16 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
 
         {isEventActive && (
           <div className="text-center text-muted-foreground">
-            <p>⏸️ Mercado pausado durante evento negativo</p>
+            <p>⏸️ Mercado pausado durante evento</p>
           </div>
         )}
       </div>
 
       <FinalReport
         isOpen={showFinalReport}
-        onClose={() => {
-          setShowFinalReport(false);
-          onBack();
-        }}
+        onClose={() => setShowFinalReport(false)}
+        onNewSimulation={handleNewSimulation}
+        onBack={onBack}
         companies={companies}
         classId={classId}
       />

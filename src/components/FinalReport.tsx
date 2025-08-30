@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Trophy, TrendingUp, TrendingDown, BarChart3 } from "lucide-react";
+import { Trophy, TrendingUp, TrendingDown, BarChart3, ArrowLeft } from "lucide-react";
 
 interface Company {
   name: string;
@@ -13,11 +13,13 @@ interface Company {
 interface FinalReportProps {
   isOpen: boolean;
   onClose: () => void;
+  onNewSimulation: () => void;
+  onBack: () => void;
   companies: Company[];
   classId: '9A' | '9B';
 }
 
-const FinalReport = ({ isOpen, onClose, companies, classId }: FinalReportProps) => {
+const FinalReport = ({ isOpen, onClose, onNewSimulation, onBack, companies, classId }: FinalReportProps) => {
   const sortedCompanies = [...companies].sort((a, b) => b.investment - a.investment);
   const totalInvestment = companies.reduce((sum, company) => sum + company.investment, 0);
 
@@ -142,7 +144,18 @@ const FinalReport = ({ isOpen, onClose, companies, classId }: FinalReportProps) 
           {/* Botões de Ação */}
           <div className="flex gap-4 justify-center pt-4">
             <Button 
-              onClick={onClose}
+              variant="secondary"
+              onClick={onBack}
+              className="flex items-center gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Voltar
+            </Button>
+            <Button 
+              onClick={() => {
+                onClose();
+                onNewSimulation();
+              }}
               className="bg-gradient-to-r from-primary to-primary/80 hover:opacity-90"
             >
               Nova Simulação
