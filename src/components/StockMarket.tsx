@@ -25,6 +25,7 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
   const [showFinalReport, setShowFinalReport] = useState(false);
   const [lastEventTime, setLastEventTime] = useState(0);
   const [isMarketActive, setIsMarketActive] = useState(true);
+  const [totalPortfolio, setTotalPortfolio] = useState(0);
 
   const companyData = {
     '9A': ['ECOSOL', 'MAXXIMINÉRIOS', 'AGROSOJA', 'FUTUROBANK', 'SMARTAL'],
@@ -112,6 +113,11 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
   };
 
   useEffect(() => {
+    const total = companies.reduce((sum, company) => sum + company.investment, 0);
+    setTotalPortfolio(total);
+  }, [companies]);
+
+  useEffect(() => {
     const initialCompanies = companyData[classId].map(name => ({
       name,
       investment: 0,
@@ -129,7 +135,7 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
 
     setCompanies(prev => prev.map(company => {
       if (affectedCompanies.includes(company.name) && company.investment > 0) {
-        const impactPercentage = 0.001 + Math.random() * 0.028; // 0.1-2.9% de variação
+        const impactPercentage = 0.01 + Math.random() * 0.03; // 1-4% de variação
         const multiplier = isPositive ? (1 + impactPercentage) : (1 - impactPercentage);
         const newInvestment = isPositive 
           ? company.investment * multiplier
@@ -211,14 +217,23 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
     setCompanies(prev => prev.map((company, index) => {
       if (index === companyIndex) {
         const newInvestment = Math.max(0, company.investment + amount);
-        const change = ((newInvestment - company.investment) / (company.investment || 1)) * 100;
         
-        return {
-          ...company,
-          investment: newInvestment,
-          lastChange: change,
-          trend: amount > 0 ? 'up' : amount < 0 ? 'down' : 'neutral'
-        };
+        // Só atualiza lastChange quando vendendo (amount < 0), não quando comprando
+        if (amount > 0) {
+          return {
+            ...company,
+            investment: newInvestment,
+            trend: 'up'
+          };
+        } else {
+          const change = ((newInvestment - company.investment) / (company.investment || 1)) * 100;
+          return {
+            ...company,
+            investment: newInvestment,
+            lastChange: change,
+            trend: 'down'
+          };
+        }
       }
       return company;
     }));
@@ -232,6 +247,23 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary p-6">
       <div className="max-w-6xl mx-auto space-y-6">
+        {/* Portfolio Panel */}
+        <div className="flex justify-start">
+          <Card className="w-fit">
+            <div className="p-4 space-y-2">
+              <h3 className="font-semibold text-lg flex items-center gap-2">
+                📊 Carteira de Investimentos
+              </h3>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Saldo Total:</span>
+                <span className="font-bold text-xl text-primary">
+                  R$ {totalPortfolio.toLocaleString('pt-BR')}
+                </span>
+              </div>
+            </div>
+          </Card>
+        </div>
+
         {/* Header */}
         <div className="flex items-center justify-between">
           <Button variant="secondary" onClick={onBack} className="flex items-center gap-2">
