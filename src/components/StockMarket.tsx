@@ -36,6 +36,7 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
   const [initialPortfolioValue, setInitialPortfolioValue] = useState(0);
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [showChart, setShowChart] = useState(false);
+  const [portfolioBaseValue, setPortfolioBaseValue] = useState(0);
 
   const companyData = {
     '9A': ['ECOSOL', 'MAXXIMINÉRIOS', 'AGROSOJA', 'FUTUROBANK', 'SMARTAL'],
@@ -125,12 +126,7 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
   useEffect(() => {
     const total = companies.reduce((sum, company) => sum + company.investment, 0);
     setTotalPortfolio(total);
-    
-    // Se é a primeira vez que o portfólio tem valor, salvar como valor inicial
-    if (initialPortfolioValue === 0 && total > 0) {
-      setInitialPortfolioValue(total);
-    }
-  }, [companies, initialPortfolioValue]);
+  }, [companies]);
 
   useEffect(() => {
     const initialCompanies = companyData[classId].map(name => ({
@@ -194,6 +190,7 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
     setShowFinalReport(false);
     setUserBalance(2000);
     setInitialPortfolioValue(0);
+    setPortfolioBaseValue(0);
     const initialCompanies = companyData[classId].map(name => ({
       name,
       investment: 0,
@@ -203,6 +200,10 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
       history: []
     }));
     setCompanies(initialCompanies);
+  };
+
+  const handleBackToClassSelection = () => {
+    onBack();
   };
 
   useEffect(() => {
@@ -256,20 +257,29 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
         const newInvestment = Math.max(0, company.investment + amount);
         const timeString = `${Math.floor(roundTime / 60)}:${(roundTime % 60).toString().padStart(2, '0')}`;
         
-        // Ao comprar ou vender, não alterar lastChange - apenas manter trend
+        // Ao comprar ou vender, não alterar lastChange nem trend - manter valores
         if (amount > 0) {
+          // Atualizar o valor base do portfólio na primeira compra
+          if (company.initialInvestment === 0) {
+            setPortfolioBaseValue(prev => prev + amount);
+          }
+          
           return {
             ...company,
             investment: newInvestment,
             initialInvestment: company.initialInvestment + amount,
-            trend: 'up',
             history: [...company.history, { time: timeString, value: newInvestment }]
           };
         } else {
+          // Ao vender, ajustar valor base proporcionalmente
+          const sellRatio = Math.abs(amount) / company.investment;
+          const baseReduction = company.initialInvestment * sellRatio;
+          setPortfolioBaseValue(prev => Math.max(0, prev - baseReduction));
+          
           return {
             ...company,
             investment: newInvestment,
-            trend: 'down',
+            initialInvestment: Math.max(0, company.initialInvestment + amount),
             history: [...company.history, { time: timeString, value: newInvestment }]
           };
         }
@@ -292,8 +302,21 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
   };
 
   const calculatePortfolioChange = () => {
-    if (initialPortfolioValue === 0) return 0;
-    return ((totalPortfolio - initialPortfolioValue) / initialPortfolioValue) * 100;
+    if (portfolioBaseValue === 0) return 0;
+    
+    // Calcular valor atual baseado no valor inicial de cada ação e sua valorização
+    let currentMarketValue = 0;
+    companies.forEach(company => {
+      if (company.initialInvestment > 0) {
+        // Calcular quantas "ações" foram compradas com base no investimento inicial
+        const shares = company.initialInvestment;
+        // Aplicar as variações de mercado (não incluir compras/vendas)
+        const marketChange = company.investment / company.initialInvestment;
+        currentMarketValue += shares * marketChange;
+      }
+    });
+    
+    return ((currentMarketValue - portfolioBaseValue) / portfolioBaseValue) * 100;
   };
 
   return (
@@ -317,7 +340,7 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
                   R$ {totalPortfolio.toLocaleString('pt-BR')}
                 </span>
               </div>
-              {initialPortfolioValue > 0 && (
+              {portfolioBaseValue > 0 && (
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-xs text-muted-foreground">Variação:</span>
                   <span className={`font-medium text-xs ${calculatePortfolioChange() >= 0 ? 'text-bull' : 'text-bear'}`}>
@@ -445,7 +468,7 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
       <FinalReport
         isOpen={showFinalReport}
         onClose={() => setShowFinalReport(false)}
-        onNewSimulation={handleNewSimulation}
+        onNewSimulation={handleBackToClassSelection}
         onBack={onBack}
         companies={companies}
         classId={classId}
