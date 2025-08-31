@@ -1,15 +1,21 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { TrendingUp, TrendingDown, AlertTriangle, Timer, ArrowLeft } from "lucide-react";
+import { TrendingUp, TrendingDown, AlertTriangle, Timer, ArrowLeft, BarChart3 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import FinalReport from "@/components/FinalReport";
+import StockChart from "@/components/StockChart";
 
 interface Company {
   name: string;
   investment: number;
   lastChange: number;
   trend: 'up' | 'down' | 'neutral';
+  initialInvestment: number;
+  history: Array<{
+    time: string;
+    value: number;
+  }>;
 }
 
 interface StockMarketProps {
@@ -26,6 +32,10 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
   const [lastEventTime, setLastEventTime] = useState(0);
   const [isMarketActive, setIsMarketActive] = useState(true);
   const [totalPortfolio, setTotalPortfolio] = useState(0);
+  const [userBalance, setUserBalance] = useState(2000);
+  const [initialPortfolioValue, setInitialPortfolioValue] = useState(0);
+  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
+  const [showChart, setShowChart] = useState(false);
 
   const companyData = {
     '9A': ['ECOSOL', 'MAXXIMINÉRIOS', 'AGROSOJA', 'FUTUROBANK', 'SMARTAL'],
@@ -115,14 +125,21 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
   useEffect(() => {
     const total = companies.reduce((sum, company) => sum + company.investment, 0);
     setTotalPortfolio(total);
-  }, [companies]);
+    
+    // Se é a primeira vez que o portfólio tem valor, salvar como valor inicial
+    if (initialPortfolioValue === 0 && total > 0) {
+      setInitialPortfolioValue(total);
+    }
+  }, [companies, initialPortfolioValue]);
 
   useEffect(() => {
     const initialCompanies = companyData[classId].map(name => ({
       name,
       investment: 0,
       lastChange: 0,
-      trend: 'neutral' as const
+      trend: 'neutral' as const,
+      initialInvestment: 0,
+      history: []
     }));
     setCompanies(initialCompanies);
     setLastEventTime(0);
@@ -142,15 +159,21 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
           : Math.max(0, company.investment * multiplier);
         const change = (multiplier - 1) * 100;
         
+        const timeString = `${Math.floor(roundTime / 60)}:${(roundTime % 60).toString().padStart(2, '0')}`;
+        
         return {
           ...company,
           investment: newInvestment,
           lastChange: change,
-          trend: isPositive ? 'up' as const : 'down' as const
+          trend: isPositive ? 'up' as const : 'down' as const,
+          history: [...company.history, { time: timeString, value: newInvestment }]
         };
       }
       return company;
     }));
+    
+    // Adicionar R$ 500 ao saldo do usuário a cada evento
+    setUserBalance(prev => prev + 500);
   };
 
   const handleEndMarket = () => {
@@ -169,11 +192,15 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
     setCurrentEvent(null);
     setIsEventActive(false);
     setShowFinalReport(false);
+    setUserBalance(2000);
+    setInitialPortfolioValue(0);
     const initialCompanies = companyData[classId].map(name => ({
       name,
       investment: 0,
       lastChange: 0,
-      trend: 'neutral' as const
+      trend: 'neutral' as const,
+      initialInvestment: 0,
+      history: []
     }));
     setCompanies(initialCompanies);
   };
@@ -214,29 +241,44 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
   const handleInvestment = (companyIndex: number, amount: number) => {
     if (isEventActive) return;
     
+    // Verificar se o usuário tem saldo suficiente para comprar
+    if (amount > 0 && userBalance < amount) {
+      toast({
+        title: "Saldo insuficiente!",
+        description: `Você precisa de R$ ${amount.toLocaleString('pt-BR')} mas possui apenas R$ ${userBalance.toLocaleString('pt-BR')}.`,
+        variant: "destructive"
+      });
+      return;
+    }
+    
     setCompanies(prev => prev.map((company, index) => {
       if (index === companyIndex) {
         const newInvestment = Math.max(0, company.investment + amount);
+        const timeString = `${Math.floor(roundTime / 60)}:${(roundTime % 60).toString().padStart(2, '0')}`;
         
-        // Só atualiza lastChange quando vendendo (amount < 0), não quando comprando
+        // Ao comprar ou vender, não alterar lastChange - apenas manter trend
         if (amount > 0) {
           return {
             ...company,
             investment: newInvestment,
-            trend: 'up'
+            initialInvestment: company.initialInvestment + amount,
+            trend: 'up',
+            history: [...company.history, { time: timeString, value: newInvestment }]
           };
         } else {
-          const change = ((newInvestment - company.investment) / (company.investment || 1)) * 100;
           return {
             ...company,
             investment: newInvestment,
-            lastChange: change,
-            trend: 'down'
+            trend: 'down',
+            history: [...company.history, { time: timeString, value: newInvestment }]
           };
         }
       }
       return company;
     }));
+
+    // Atualizar saldo do usuário
+    setUserBalance(prev => prev - amount);
 
     toast({
       title: amount > 0 ? "Investimento realizado!" : "Desinvestimento realizado!",
@@ -244,36 +286,64 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
     });
   };
 
+  const handleCompanyClick = (company: Company) => {
+    setSelectedCompany(company);
+    setShowChart(true);
+  };
+
+  const calculatePortfolioChange = () => {
+    if (initialPortfolioValue === 0) return 0;
+    return ((totalPortfolio - initialPortfolioValue) / initialPortfolioValue) * 100;
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary p-6">
       <div className="max-w-6xl mx-auto space-y-6">
-        {/* Portfolio Panel */}
-        <div className="flex justify-start">
-          <Card className="w-fit">
-            <div className="p-4 space-y-2">
-              <h3 className="font-semibold text-lg flex items-center gap-2">
-                📊 Carteira de Investimentos
-              </h3>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Saldo Total:</span>
-                <span className="font-bold text-xl text-primary">
-                  R$ {totalPortfolio.toLocaleString('pt-BR')}
-                </span>
-              </div>
-            </div>
-          </Card>
-        </div>
-
-        {/* Header */}
-        <div className="flex items-center justify-between">
+        {/* Header with all elements aligned */}
+        <div className="flex items-center justify-between gap-4">
           <Button variant="secondary" onClick={onBack} className="flex items-center gap-2">
             <ArrowLeft className="h-4 w-4" />
             Voltar
           </Button>
           
+          <Card className="flex-1 max-w-sm">
+            <div className="p-3 space-y-1">
+              <h3 className="font-semibold text-sm flex items-center gap-2">
+                📊 Carteira de Investimentos
+              </h3>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs text-muted-foreground">Total:</span>
+                <span className="font-bold text-sm text-primary">
+                  R$ {totalPortfolio.toLocaleString('pt-BR')}
+                </span>
+              </div>
+              {initialPortfolioValue > 0 && (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs text-muted-foreground">Variação:</span>
+                  <span className={`font-medium text-xs ${calculatePortfolioChange() >= 0 ? 'text-bull' : 'text-bear'}`}>
+                    {calculatePortfolioChange() >= 0 ? '+' : ''}{calculatePortfolioChange().toFixed(1)}%
+                  </span>
+                </div>
+              )}
+            </div>
+          </Card>
+
+          <Card className="w-fit">
+            <div className="p-3 space-y-1">
+              <h3 className="font-semibold text-sm flex items-center gap-2">
+                💰 Saldo Disponível
+              </h3>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-sm text-primary">
+                  R$ {userBalance.toLocaleString('pt-BR')}
+                </span>
+              </div>
+            </div>
+          </Card>
+          
           <div className="text-center">
-            <h1 className="text-2xl font-bold">Turma {classId}</h1>
-            <p className="text-muted-foreground">Mercado Ativo - {Math.floor(roundTime / 60)}:{(roundTime % 60).toString().padStart(2, '0')}</p>
+            <h1 className="text-xl font-bold">Turma {classId}</h1>
+            <p className="text-sm text-muted-foreground">Mercado Ativo - {Math.floor(roundTime / 60)}:{(roundTime % 60).toString().padStart(2, '0')}</p>
           </div>
           
           <Button 
@@ -301,12 +371,15 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
         {/* Companies Grid */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {companies.map((company, index) => (
-            <Card key={company.name} className="company-card">
+            <Card key={company.name} className="company-card cursor-pointer hover:shadow-lg transition-shadow" onClick={() => handleCompanyClick(company)}>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="font-bold text-lg">{company.name}</h3>
-                  {company.trend === 'up' && <TrendingUp className="h-5 w-5 text-bull" />}
-                  {company.trend === 'down' && <TrendingDown className="h-5 w-5 text-bear" />}
+                  <div className="flex items-center gap-2">
+                    {company.trend === 'up' && <TrendingUp className="h-5 w-5 text-bull" />}
+                    {company.trend === 'down' && <TrendingDown className="h-5 w-5 text-bear" />}
+                    <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -327,18 +400,18 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
                   )}
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
                   <Button
                     className="investment-button bull flex-1"
                     onClick={() => handleInvestment(index, 100)}
-                    disabled={isEventActive || !isMarketActive}
+                    disabled={isEventActive || !isMarketActive || userBalance < 100}
                   >
                     +R$ 100
                   </Button>
                   <Button
                     className="investment-button bull flex-1"
                     onClick={() => handleInvestment(index, 500)}
-                    disabled={isEventActive || !isMarketActive}
+                    disabled={isEventActive || !isMarketActive || userBalance < 500}
                   >
                     +R$ 500
                   </Button>
@@ -376,6 +449,13 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
         onBack={onBack}
         companies={companies}
         classId={classId}
+      />
+
+      <StockChart
+        isOpen={showChart}
+        onClose={() => setShowChart(false)}
+        companyName={selectedCompany?.name || ''}
+        history={selectedCompany?.history || []}
       />
     </div>
   );
