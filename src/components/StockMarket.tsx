@@ -26,7 +26,6 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
   const [lastEventTime, setLastEventTime] = useState(0);
   const [isMarketActive, setIsMarketActive] = useState(true);
   const [totalPortfolio, setTotalPortfolio] = useState(0);
-  const [userBalance, setUserBalance] = useState(2000);
 
   const companyData = {
     '9A': ['ECOSOL', 'MAXXIMINÉRIOS', 'AGROSOJA', 'FUTUROBANK', 'SMARTAL'],
@@ -127,7 +126,6 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
     }));
     setCompanies(initialCompanies);
     setLastEventTime(0);
-    setUserBalance(2000);
   }, [classId]);
 
   const applyEventImpact = (eventName: string, isPositive: boolean) => {
@@ -171,7 +169,6 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
     setCurrentEvent(null);
     setIsEventActive(false);
     setShowFinalReport(false);
-    setUserBalance(2000);
     const initialCompanies = companyData[classId].map(name => ({
       name,
       investment: 0,
@@ -198,9 +195,6 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
       // Aplicar impacto imediatamente quando o evento aparece
       applyEventImpact(randomEvent, isPositive);
       
-      // Adicionar 500 reais ao saldo do usuário a cada evento
-      setUserBalance(prev => prev + 500);
-      
       // Remover aviso após 7 segundos, mas mercado continua pausado
       setTimeout(() => {
         setCurrentEvent(null);
@@ -220,21 +214,11 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
   const handleInvestment = (companyIndex: number, amount: number) => {
     if (isEventActive) return;
     
-    // Verificar se há saldo suficiente para comprar
-    if (amount > 0 && userBalance < amount) {
-      toast({
-        title: "Saldo insuficiente!",
-        description: `Você precisa de R$ ${amount.toLocaleString('pt-BR')} mas possui apenas R$ ${userBalance.toLocaleString('pt-BR')}`,
-        variant: "destructive"
-      });
-      return;
-    }
-    
     setCompanies(prev => prev.map((company, index) => {
       if (index === companyIndex) {
         const newInvestment = Math.max(0, company.investment + amount);
         
-        // Só mantém o investimento sem alterar lastChange ao vender
+        // Só atualiza lastChange quando vendendo (amount < 0), não quando comprando
         if (amount > 0) {
           return {
             ...company,
@@ -242,19 +226,17 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
             trend: 'up'
           };
         } else {
-          // Ao vender, não altera o lastChange
+          const change = ((newInvestment - company.investment) / (company.investment || 1)) * 100;
           return {
             ...company,
             investment: newInvestment,
+            lastChange: change,
             trend: 'down'
           };
         }
       }
       return company;
     }));
-
-    // Atualizar saldo do usuário
-    setUserBalance(prev => prev - amount);
 
     toast({
       title: amount > 0 ? "Investimento realizado!" : "Desinvestimento realizado!",
@@ -265,36 +247,29 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary p-6">
       <div className="max-w-6xl mx-auto space-y-6">
-        {/* Header with all elements in one row */}
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <Button variant="secondary" onClick={onBack} className="flex items-center gap-2">
-              <ArrowLeft className="h-4 w-4" />
-              Voltar
-            </Button>
-            
-            <Card className="w-fit">
-              <div className="px-3 py-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">📊 Carteira:</span>
-                  <span className="font-bold text-primary">
-                    R$ {totalPortfolio.toLocaleString('pt-BR')}
-                  </span>
-                </div>
+        {/* Portfolio Panel */}
+        <div className="flex justify-start">
+          <Card className="w-fit">
+            <div className="p-4 space-y-2">
+              <h3 className="font-semibold text-lg flex items-center gap-2">
+                📊 Carteira de Investimentos
+              </h3>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Saldo Total:</span>
+                <span className="font-bold text-xl text-primary">
+                  R$ {totalPortfolio.toLocaleString('pt-BR')}
+                </span>
               </div>
-            </Card>
-            
-            <Card className="w-fit">
-              <div className="px-3 py-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">💰 Saldo:</span>
-                  <span className="font-bold text-secondary-foreground">
-                    R$ {userBalance.toLocaleString('pt-BR')}
-                  </span>
-                </div>
-              </div>
-            </Card>
-          </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <Button variant="secondary" onClick={onBack} className="flex items-center gap-2">
+            <ArrowLeft className="h-4 w-4" />
+            Voltar
+          </Button>
           
           <div className="text-center">
             <h1 className="text-2xl font-bold">Turma {classId}</h1>
