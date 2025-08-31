@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { TrendingUp, TrendingDown, AlertTriangle, Timer, ArrowLeft, BarChart3 } from "lucide-react";
+import { TrendingUp, TrendingDown, AlertTriangle, Timer, ArrowLeft, BarChart3, Clock, Star, Leaf, Pickaxe, Wheat, Building2, Zap, Coffee, CircuitBoard, Banknote } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import FinalReport from "@/components/FinalReport";
 import StockChart from "@/components/StockChart";
+import EventHistory from "@/components/EventHistory";
+import PortfolioChart from "@/components/PortfolioChart";
 
 interface Company {
   name: string;
@@ -16,6 +18,14 @@ interface Company {
     time: string;
     value: number;
   }>;
+  negativeEventCount: number;
+}
+
+interface EventRecord {
+  time: string;
+  event: string;
+  type: 'positive' | 'negative';
+  affectedCompanies: string[];
 }
 
 interface StockMarketProps {
@@ -37,10 +47,27 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [showChart, setShowChart] = useState(false);
   const [portfolioBaseValue, setPortfolioBaseValue] = useState(0);
+  const [eventHistory, setEventHistory] = useState<EventRecord[]>([]);
+  const [showEventHistory, setShowEventHistory] = useState(false);
+  const [portfolioHistory, setPortfolioHistory] = useState<Array<{time: string, value: number}>>([]);
+  const [showPortfolioChart, setShowPortfolioChart] = useState(false);
 
   const companyData = {
     '9A': ['ECOSOL', 'MAXXIMINÉRIOS', 'AGROSOJA', 'FUTUROBANK', 'SMARTAL'],
     '9B': ['EOLION', 'GALINDOS\'S COFFEE', 'MINEX', 'SANTOS TECNOVA', 'ALFABANK']
+  };
+
+  const companyIcons = {
+    'ECOSOL': Leaf,
+    'EOLION': Leaf,
+    'MAXXIMINÉRIOS': Pickaxe,
+    'MINEX': Pickaxe,
+    'AGROSOJA': Wheat,
+    'GALINDOS\'S COFFEE': Coffee,
+    'FUTUROBANK': Banknote,
+    'ALFABANK': Banknote,
+    'SMARTAL': CircuitBoard,
+    'SANTOS TECNOVA': CircuitBoard
   };
 
   const negativeEvents = [
@@ -135,16 +162,29 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
       lastChange: 0,
       trend: 'neutral' as const,
       initialInvestment: 0,
-      history: []
+      history: [],
+      negativeEventCount: 0
     }));
     setCompanies(initialCompanies);
     setLastEventTime(0);
+    setEventHistory([]);
+    setPortfolioHistory([]);
   }, [classId]);
 
   const applyEventImpact = (eventName: string, isPositive: boolean) => {
     const impactMap = isPositive ? positiveEventImpacts : negativeEventImpacts;
     const affectedCompanies = impactMap[classId][eventName];
     if (!affectedCompanies) return;
+
+    const timeString = `${Math.floor(roundTime / 60)}:${(roundTime % 60).toString().padStart(2, '0')}`;
+    
+    // Registrar o evento no histórico
+    setEventHistory(prev => [...prev, {
+      time: timeString,
+      event: eventName,
+      type: isPositive ? 'positive' : 'negative',
+      affectedCompanies
+    }]);
 
     setCompanies(prev => prev.map(company => {
       if (affectedCompanies.includes(company.name) && company.investment > 0) {
@@ -155,14 +195,13 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
           : Math.max(0, company.investment * multiplier);
         const change = (multiplier - 1) * 100;
         
-        const timeString = `${Math.floor(roundTime / 60)}:${(roundTime % 60).toString().padStart(2, '0')}`;
-        
         return {
           ...company,
           investment: newInvestment,
           lastChange: change,
           trend: isPositive ? 'up' as const : 'down' as const,
-          history: [...company.history, { time: timeString, value: newInvestment }]
+          history: [...company.history, { time: timeString, value: newInvestment }],
+          negativeEventCount: isPositive ? company.negativeEventCount : company.negativeEventCount + 1
         };
       }
       return company;
@@ -191,13 +230,16 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
     setUserBalance(2000);
     setInitialPortfolioValue(0);
     setPortfolioBaseValue(0);
+    setEventHistory([]);
+    setPortfolioHistory([]);
     const initialCompanies = companyData[classId].map(name => ({
       name,
       investment: 0,
       lastChange: 0,
       trend: 'neutral' as const,
       initialInvestment: 0,
-      history: []
+      history: [],
+      negativeEventCount: 0
     }));
     setCompanies(initialCompanies);
   };
@@ -290,6 +332,11 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
     // Atualizar saldo do usuário
     setUserBalance(prev => prev - amount);
 
+    // Atualizar histórico da carteira
+    const timeString = `${Math.floor(roundTime / 60)}:${(roundTime % 60).toString().padStart(2, '0')}`;
+    const newPortfolioValue = totalPortfolio + amount;
+    setPortfolioHistory(prev => [...prev, { time: timeString, value: newPortfolioValue }]);
+
     toast({
       title: amount > 0 ? "Investimento realizado!" : "Desinvestimento realizado!",
       description: `R$ ${Math.abs(amount).toLocaleString('pt-BR')} ${amount > 0 ? 'investidos' : 'retirados'}`,
@@ -319,6 +366,14 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
     return ((currentMarketValue - portfolioBaseValue) / portfolioBaseValue) * 100;
   };
 
+  const getSuggestedCompany = () => {
+    const companiesWithInvestment = companies.filter(c => c.investment > 0);
+    if (companiesWithInvestment.length === 0) return null;
+    
+    const minNegativeEvents = Math.min(...companiesWithInvestment.map(c => c.negativeEventCount));
+    return companiesWithInvestment.find(c => c.negativeEventCount === minNegativeEvents);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary p-6">
       <div className="max-w-6xl mx-auto space-y-6">
@@ -333,6 +388,14 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
             <div className="p-3 space-y-1">
               <h3 className="font-semibold text-sm flex items-center gap-2">
                 📊 Carteira de Investimentos
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-6 w-6 p-0"
+                  onClick={() => setShowPortfolioChart(true)}
+                >
+                  <BarChart3 className="h-3 w-3" />
+                </Button>
               </h3>
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs text-muted-foreground">Total:</span>
@@ -369,14 +432,25 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
             <p className="text-sm text-muted-foreground">Mercado Ativo - {Math.floor(roundTime / 60)}:{(roundTime % 60).toString().padStart(2, '0')}</p>
           </div>
           
-          <Button 
-            variant="destructive" 
-            onClick={handleEndMarket}
-            disabled={!isMarketActive}
-            className="flex items-center gap-2"
-          >
-            Encerrar Mercado
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowEventHistory(true)}
+              className="flex items-center gap-2"
+            >
+              <Clock className="h-4 w-4" />
+              Histórico de Eventos
+            </Button>
+            
+            <Button 
+              variant="destructive" 
+              onClick={handleEndMarket}
+              disabled={!isMarketActive}
+              className="flex items-center gap-2"
+            >
+              Encerrar Mercado
+            </Button>
+          </div>
         </div>
 
         {/* Event Alert */}
@@ -393,17 +467,31 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
 
         {/* Companies Grid */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {companies.map((company, index) => (
-            <Card key={company.name} className="company-card cursor-pointer hover:shadow-lg transition-shadow" onClick={() => handleCompanyClick(company)}>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-bold text-lg">{company.name}</h3>
-                  <div className="flex items-center gap-2">
-                    {company.trend === 'up' && <TrendingUp className="h-5 w-5 text-bull" />}
-                    {company.trend === 'down' && <TrendingDown className="h-5 w-5 text-bear" />}
-                    <BarChart3 className="h-4 w-4 text-muted-foreground" />
+          {companies.map((company, index) => {
+            const CompanyIcon = companyIcons[company.name] || Building2;
+            const suggestedCompany = getSuggestedCompany();
+            const isRecommended = suggestedCompany?.name === company.name;
+            
+            return (
+              <Card key={company.name} className="company-card cursor-pointer hover:shadow-lg transition-shadow" onClick={() => handleCompanyClick(company)}>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CompanyIcon className="h-5 w-5 text-primary" />
+                      <h3 className="font-bold text-lg">{company.name}</h3>
+                      {isRecommended && (
+                        <div className="flex items-center gap-1 bg-yellow-100 dark:bg-yellow-900/30 px-2 py-1 rounded-full">
+                          <Star className="h-3 w-3 text-yellow-600 dark:text-yellow-400 fill-current" />
+                          <span className="text-xs text-yellow-700 dark:text-yellow-300 font-medium">Sugestão</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {company.trend === 'up' && <TrendingUp className="h-5 w-5 text-bull" />}
+                      {company.trend === 'down' && <TrendingDown className="h-5 w-5 text-bear" />}
+                      <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                    </div>
                   </div>
-                </div>
 
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
@@ -455,7 +543,8 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
                 </div>
               </div>
             </Card>
-          ))}
+            );
+          })}
         </div>
 
         {isEventActive && (
@@ -479,6 +568,18 @@ const StockMarket = ({ classId, onBack }: StockMarketProps) => {
         onClose={() => setShowChart(false)}
         companyName={selectedCompany?.name || ''}
         history={selectedCompany?.history || []}
+      />
+
+      <EventHistory
+        isOpen={showEventHistory}
+        onClose={() => setShowEventHistory(false)}
+        events={eventHistory}
+      />
+
+      <PortfolioChart
+        isOpen={showPortfolioChart}
+        onClose={() => setShowPortfolioChart(false)}
+        history={portfolioHistory}
       />
     </div>
   );
